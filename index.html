@@ -2,22 +2,42 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>KanaFlash</title>
+    
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#4f46e5">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="KanaFlash">
+    
+    <!-- Tailwind and Fonts -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    
     <style>
         body {
             font-family: 'Inter', 'Noto Sans JP', sans-serif;
             background-color: #f8fafc;
             color: #1e293b;
             -webkit-tap-highlight-color: transparent;
+            /* 모바일에서 텍스트 선택 방지 (학습 몰입도 향상) */
+            user-select: none;
+            -webkit-user-select: none;
         }
         .font-kana {
             font-family: 'Noto Sans JP', sans-serif;
             font-weight: 500;
+        }
+        /* PWA standalone 모드일 때 상단 여백 보정 (iOS 등) */
+        @supports (padding: env(safe-area-inset-top)) {
+            .pwa-top-safe {
+                padding-top: env(safe-area-inset-top);
+            }
         }
     </style>
 <script type="importmap">
@@ -32,7 +52,7 @@
 }
 </script>
 </head>
-<body>
+<body class="pwa-top-safe">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
 </body>

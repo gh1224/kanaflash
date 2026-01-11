@@ -1,0 +1,23 @@
+{
+  "name": "KanaFlash - 일본어 속독 마스터",
+  "short_name": "KanaFlash",
+  "description": "히라가나와 가타카나를 가장 빠르게 익히는 플래시카드 앱",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#4f46e5",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/1150/1150592.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/192/1150/1150592.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}
