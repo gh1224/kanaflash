@@ -1,4 +1,6 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+
+// Fix: Added React import to resolve the "Cannot find namespace 'React'" error when using React.FC
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { HIRAGANA, KATAKANA } from './constants';
 import { KanaItem, View, KanaType, KanaCategory } from './types';
 import { Button } from './components/Button';
@@ -18,6 +20,7 @@ const App: React.FC = () => {
   // Timer
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [initialTime, setInitialTime] = useState<number>(0);
+  const [sessionTimeTaken, setSessionTimeTaken] = useState<number>(0);
   const timerRef = useRef<number | null>(null);
 
   // Session Stats
@@ -37,8 +40,11 @@ const App: React.FC = () => {
     localStorage.setItem('kana_mistakes', JSON.stringify(mistakes));
   }, [mistakes]);
 
-  const endQuizSession = useCallback(() => {
+  const endQuizSession = useCallback((timeTakenOverride?: number) => {
     if (timerRef.current) clearInterval(timerRef.current);
+    if (timeTakenOverride !== undefined) {
+      setSessionTimeTaken(timeTakenOverride);
+    }
     setCurrentView(View.SUMMARY);
     setTimeLeft(null);
   }, []);
@@ -51,11 +57,12 @@ const App: React.FC = () => {
           setTimeLeft(prev => (prev && prev > 0 ? prev - 1 : 0));
         }, 1000);
       } else {
-        endQuizSession();
+        // Time ran out
+        endQuizSession(initialTime);
       }
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [currentView, timeLeft === 0, endQuizSession]);
+  }, [currentView, timeLeft === 0, endQuizSession, initialTime]);
 
   // --- Derived Data ---
   const allKana = useMemo(() => [...HIRAGANA, ...KATAKANA], []);
@@ -68,6 +75,13 @@ const App: React.FC = () => {
     [allKana, selectedTypes, selectedCategories]
   );
 
+  const formatTime = (seconds: number) => {
+    if (seconds < 60) return `${seconds}초`;
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return secs === 0 ? `${mins}분` : `${mins}분 ${secs}초`;
+  };
+
   // --- Actions ---
   const startQuiz = useCallback((deck: KanaItem[]) => {
     if (deck.length === 0) return;
@@ -76,6 +90,7 @@ const App: React.FC = () => {
     setCurrentIndex(0);
     setShowAnswer(false);
     setSessionStats({ correct: 0, incorrect: 0 });
+    setSessionTimeTaken(0);
     const duration = Math.max(10, deck.length * 4);
     setTimeLeft(duration);
     setInitialTime(duration);
@@ -106,7 +121,8 @@ const App: React.FC = () => {
       setCurrentIndex(prev => prev + 1);
       setShowAnswer(false);
     } else {
-      endQuizSession();
+      const timeTaken = initialTime - (timeLeft || 0);
+      endQuizSession(timeTaken);
     }
   };
 
@@ -234,9 +250,15 @@ const App: React.FC = () => {
         <p className="text-slate-500 mb-8 font-medium">수고하셨습니다! 오늘의 학습 성과입니다.</p>
         
         <div className="w-full grid grid-cols-1 gap-4 mb-10">
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-            <p className="text-slate-400 text-sm font-bold uppercase mb-1">전체 글자수</p>
-            <p className="text-4xl font-black text-slate-800">{quizDeck.length}</p>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center">
+              <p className="text-slate-400 text-xs font-bold uppercase mb-1">전체 글자수</p>
+              <p className="text-3xl font-black text-slate-800">{quizDeck.length}</p>
+            </div>
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center">
+              <p className="text-indigo-400 text-xs font-bold uppercase mb-1">소요 시간</p>
+              <p className="text-2xl font-black text-indigo-700">{formatTime(sessionTimeTaken)}</p>
+            </div>
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100">
