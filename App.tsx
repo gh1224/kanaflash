@@ -5,11 +5,36 @@ import { Button } from './components/Button';
 import { DrawingCanvas } from './components/DrawingCanvas';
 
 const App: React.FC = () => {
-  // --- State ---
-  const [currentView, setCurrentView] = useState<View>(View.HOME);
-  const [selectedTypes, setSelectedTypes] = useState<KanaType[]>(['hiragana']);
-  const [selectedCategories, setSelectedCategories] = useState<KanaCategory[]>(['basic']);
+  // --- State Initialization with Persistence ---
+  const [selectedTypes, setSelectedTypes] = useState<KanaType[]>(() => {
+    const saved = localStorage.getItem('kana_selected_types');
+    try {
+      return saved ? JSON.parse(saved) : ['hiragana'];
+    } catch {
+      return ['hiragana'];
+    }
+  });
+
+  const [selectedCategories, setSelectedCategories] = useState<KanaCategory[]>(() => {
+    const saved = localStorage.getItem('kana_selected_categories');
+    try {
+      return saved ? JSON.parse(saved) : ['basic'];
+    } catch {
+      return ['basic'];
+    }
+  });
+
+  // 개별 글자 선택 범위 영속화
+  const [selectedQuizIds, setSelectedQuizIds] = useState<string[]>(() => {
+    const saved = localStorage.getItem('kana_selected_quiz_ids');
+    try {
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   
+  const [currentView, setCurrentView] = useState<View>(View.HOME);
   const [quizDeck, setQuizDeck] = useState<KanaItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
@@ -24,7 +49,6 @@ const App: React.FC = () => {
   // Modals
   const [writingPickerOpen, setWritingPickerOpen] = useState(false);
   const [quizPickerOpen, setQuizPickerOpen] = useState(false);
-  const [tempSelectedQuizIds, setTempSelectedQuizIds] = useState<string[]>([]);
   
   // Timer
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
@@ -44,6 +68,23 @@ const App: React.FC = () => {
     }
   });
 
+  // --- Persistence Sync ---
+  useEffect(() => {
+    localStorage.setItem('kana_selected_types', JSON.stringify(selectedTypes));
+  }, [selectedTypes]);
+
+  useEffect(() => {
+    localStorage.setItem('kana_selected_categories', JSON.stringify(selectedCategories));
+  }, [selectedCategories]);
+
+  useEffect(() => {
+    localStorage.setItem('kana_selected_quiz_ids', JSON.stringify(selectedQuizIds));
+  }, [selectedQuizIds]);
+
+  useEffect(() => {
+    localStorage.setItem('kana_mistakes', JSON.stringify(mistakes));
+  }, [mistakes]);
+
   // --- Browser Navigation Support ---
   const navigateTo = useCallback((view: View) => {
     window.history.pushState({ view }, '');
@@ -57,24 +98,16 @@ const App: React.FC = () => {
       } else {
         setCurrentView(View.HOME);
       }
-      // Close all modals on back button
       setWritingPickerOpen(false);
       setQuizPickerOpen(false);
     };
 
     window.addEventListener('popstate', handlePopState);
-    
     if (!window.history.state) {
       window.history.replaceState({ view: View.HOME }, '');
     }
-
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
-
-  // --- Persistence ---
-  useEffect(() => {
-    localStorage.setItem('kana_mistakes', JSON.stringify(mistakes));
-  }, [mistakes]);
 
   const endQuizSession = useCallback((timeTakenOverride?: number) => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -122,7 +155,6 @@ const App: React.FC = () => {
     if (deck.length === 0) return;
     const shuffled = [...deck].sort(() => Math.random() - 0.5);
     
-    // Save for retry
     setLastSessionConfig({
       source,
       ids: deck.map(k => k.id)
@@ -153,8 +185,6 @@ const App: React.FC = () => {
 
   const handleNext = (isCorrect: boolean) => {
     const currentItem = quizDeck[currentIndex];
-    
-    // Update history for undo
     setQuizHistory(prev => [...prev, isCorrect]);
 
     if (isCorrect) {
@@ -179,10 +209,7 @@ const App: React.FC = () => {
   const handlePrevious = () => {
     if (currentIndex === 0) return;
 
-    // Get the result of the previous card
     const lastResult = quizHistory[quizHistory.length - 1];
-    
-    // Revert stats
     if (lastResult !== undefined) {
       if (lastResult) {
         setSessionStats(prev => ({ ...prev, correct: Math.max(0, prev.correct - 1) }));
@@ -193,29 +220,25 @@ const App: React.FC = () => {
     }
 
     setCurrentIndex(prev => prev - 1);
-    setShowAnswer(true); // Return to answer state for quick review/correction
+    setShowAnswer(true);
   };
 
   const handleRetry = () => {
     if (!lastSessionConfig) return;
-    
     if (lastSessionConfig.source === 'review') {
-      // For review retry, we take the CURRENT mistake list
       startQuiz(mistakeItems, 'review');
     } else {
-      // For normal retry, we take the fixed set used in the last session
       const retryDeck = allKana.filter(k => lastSessionConfig.ids.includes(k.id));
       startQuiz(retryDeck, 'normal');
     }
   };
 
   const toggleQuizItem = (id: string) => {
-    setTempSelectedQuizIds(prev => 
+    setSelectedQuizIds(prev => 
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
     );
   };
 
-  // --- Sub-renderers ---
   const renderHome = () => (
     <div className="flex flex-col gap-6 p-6 max-w-md mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
       <header className="text-center mt-8 mb-4">
@@ -257,7 +280,10 @@ const App: React.FC = () => {
 
         <div className="flex flex-col gap-2 mt-2">
           <Button disabled={activePool.length === 0} onClick={() => {
-            setTempSelectedQuizIds(activePool.map(k => k.id));
+            // 처음 켜거나 아무것도 선택 안된 경우에만 전체 선택으로 초기화
+            if (selectedQuizIds.length === 0) {
+              setSelectedQuizIds(activePool.map(k => k.id));
+            }
             setQuizPickerOpen(true);
           }}>플래시카드 시작</Button>
           <Button variant="secondary" disabled={activePool.length === 0} onClick={() => setWritingPickerOpen(true)}>쓰기 연습</Button>
@@ -279,7 +305,11 @@ const App: React.FC = () => {
 
   const renderQuizPicker = () => {
     if (!quizPickerOpen) return null;
-    const selectedCount = tempSelectedQuizIds.length;
+    
+    // 현재 활성화된 풀 중에서 선택된 것들만 필터링
+    const currentlySelectedInPool = activePool.filter(k => selectedQuizIds.includes(k.id));
+    const selectedCount = currentlySelectedInPool.length;
+
     return (
       <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
         <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-6 flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200">
@@ -292,15 +322,34 @@ const App: React.FC = () => {
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
           </div>
-          
-          <div className="flex gap-2 mb-4">
-            <button onClick={() => setTempSelectedQuizIds(activePool.map(k => k.id))} className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-full border border-indigo-100">전체 선택</button>
-            <button onClick={() => setTempSelectedQuizIds([])} className="text-[10px] font-bold text-slate-400 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-200">전체 해제</button>
+
+          {/* 전체 선택/해제 버튼 바 */}
+          <div className="flex gap-2 mb-4 px-1">
+            <button 
+              onClick={() => {
+                const allActiveIds = activePool.map(k => k.id);
+                // 기존 선택에 현재 풀의 모든 ID를 합집합 (중복제거)
+                setSelectedQuizIds(prev => Array.from(new Set([...prev, ...allActiveIds])));
+              }} 
+              className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-full border border-indigo-100 active:scale-95 transition-transform"
+            >
+              전체 선택
+            </button>
+            <button 
+              onClick={() => {
+                const allActiveIds = activePool.map(k => k.id);
+                // 기존 선택에서 현재 풀의 ID들만 차집합으로 제거
+                setSelectedQuizIds(prev => prev.filter(id => !allActiveIds.includes(id)));
+              }} 
+              className="text-[11px] font-bold text-slate-400 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-200 active:scale-95 transition-transform"
+            >
+              전체 해제
+            </button>
           </div>
 
           <div className="overflow-y-auto flex-1 grid grid-cols-5 gap-2 pr-1 scrollbar-hide">
             {activePool.map((k) => {
-              const isSelected = tempSelectedQuizIds.includes(k.id);
+              const isSelected = selectedQuizIds.includes(k.id);
               return (
                 <button 
                   key={k.id} 
@@ -313,11 +362,10 @@ const App: React.FC = () => {
               );
             })}
           </div>
-
           <div className="mt-6 flex flex-col gap-2">
-            <Button disabled={activePool.length === 0} onClick={() => startQuiz(activePool, 'normal')} variant="outline">전체 글자 퀴즈 시작</Button>
-            <Button disabled={selectedCount === 0} onClick={() => startQuiz(activePool.filter(k => tempSelectedQuizIds.includes(k.id)), 'normal')}>
-              {selectedCount}개 글자만 학습 시작
+            <Button disabled={activePool.length === 0} onClick={() => startQuiz(activePool, 'normal')} variant="outline">화면의 모든 글자 퀴즈</Button>
+            <Button disabled={selectedCount === 0} onClick={() => startQuiz(currentlySelectedInPool, 'normal')}>
+              {selectedCount}개 글자만 시작
             </Button>
           </div>
         </div>
@@ -339,11 +387,7 @@ const App: React.FC = () => {
           <div className="overflow-y-auto flex-1 grid grid-cols-5 gap-2 pr-1 scrollbar-hide">
             <button onClick={() => startWriting(activePool, 0)} className="col-span-5 bg-indigo-50 text-indigo-700 py-3 rounded-xl font-bold mb-2 border-2 border-indigo-100 text-sm active:scale-[0.98] transition-transform">처음부터 순서대로 시작</button>
             {activePool.map((k, idx) => (
-              <button 
-                key={k.id} 
-                onClick={() => startWriting(activePool, idx)} 
-                className={`aspect-square flex flex-col items-center justify-center rounded-xl transition-all border active:scale-95 ${currentIndex === idx && currentView === View.WRITING ? 'bg-indigo-600 text-white border-indigo-700 shadow-md' : 'bg-slate-50 text-slate-600 border-slate-100 hover:bg-indigo-50 hover:text-indigo-600'}`}
-              >
+              <button key={k.id} onClick={() => startWriting(activePool, idx)} className={`aspect-square flex flex-col items-center justify-center rounded-xl transition-all border active:scale-95 ${currentIndex === idx && currentView === View.WRITING ? 'bg-indigo-600 text-white border-indigo-700 shadow-md' : 'bg-slate-50 text-slate-600 border-slate-100 hover:bg-indigo-50 hover:text-indigo-600'}`}>
                 <span className="text-xl font-bold font-kana leading-none">{k.char}</span>
                 <span className={`text-[10px] uppercase font-black mt-1 ${currentIndex === idx && currentView === View.WRITING ? 'opacity-80' : 'opacity-50'}`}>{k.romaji}</span>
               </button>
@@ -356,9 +400,8 @@ const App: React.FC = () => {
 
   const renderQuiz = () => {
     const item = quizDeck[currentIndex];
+    if (!item) return null;
     const timeProgress = timeLeft !== null ? (timeLeft / initialTime) * 100 : 100;
-    
-    // 요음(2글자)인 경우 글자 크기를 줄여서 박스 안에 맞춤
     const kanaFontSize = item.char.length > 1 ? 'text-[min(22vw,5.5rem)]' : 'text-[min(35vw,8.5rem)]';
 
     return (
@@ -367,11 +410,9 @@ const App: React.FC = () => {
           <div className={`h-full transition-all duration-1000 ease-linear ${timeLeft && timeLeft < 10 ? 'bg-rose-500' : 'bg-indigo-500'}`} style={{ width: `${timeProgress}%` }} />
         </div>
         <div className="p-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <button onClick={() => { window.history.back(); setTimeLeft(null); }} className="text-slate-400 p-2 active:scale-90 transition-transform">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-          </div>
+          <button onClick={() => { window.history.back(); setTimeLeft(null); }} className="text-slate-400 p-2 active:scale-90 transition-transform">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
           <span className={`text-sm font-black ${timeLeft && timeLeft < 10 ? 'text-rose-600 animate-pulse' : 'text-slate-600'}`}>{timeLeft}초 남음</span>
           <span className="text-xs font-bold text-slate-400">{currentIndex + 1}/{quizDeck.length}</span>
         </div>
@@ -383,14 +424,24 @@ const App: React.FC = () => {
             {showAnswer && <span className="text-3xl font-black text-indigo-600 uppercase tracking-widest mt-6 animate-in zoom-in">{item.romaji}</span>}
           </div>
         </div>
-        <div className="p-8 pb-8 bg-white rounded-t-[3rem] shadow-2xl flex flex-col gap-3">
+        
+        {/* Quiz Action Area */}
+        <div className="p-8 pb-10 bg-white rounded-t-[3rem] shadow-2xl flex flex-col gap-4">
           {currentIndex > 0 && (
-            <Button variant="outline" onClick={handlePrevious} className="w-full py-3 text-sm border-slate-100 text-slate-400 hover:text-indigo-500 hover:border-indigo-100">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+            <Button 
+              variant="outline" 
+              onClick={handlePrevious} 
+              className="w-full py-3 text-sm border-slate-100 text-slate-400 hover:text-indigo-500 hover:border-indigo-100 animate-in fade-in slide-in-from-bottom-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
               이전 단어
             </Button>
           )}
-          {!showAnswer ? <Button onClick={() => setShowAnswer(true)} className="w-full py-5 text-xl">정답 확인</Button> : (
+          {!showAnswer ? (
+            <Button onClick={() => setShowAnswer(true)} className="w-full py-5 text-xl">정답 확인</Button>
+          ) : (
             <div className="grid grid-cols-2 gap-4">
               <Button variant="danger" onClick={() => handleNext(false)} className="py-5">몰라요</Button>
               <Button variant="success" onClick={() => handleNext(true)} className="py-5">알아요</Button>
@@ -403,7 +454,6 @@ const App: React.FC = () => {
 
   const renderSummary = () => {
     const showRetry = lastSessionConfig && (lastSessionConfig.source === 'normal' || (lastSessionConfig.source === 'review' && mistakeItems.length > 0));
-    
     return (
       <div className="flex flex-col h-screen max-w-md mx-auto bg-slate-50 overflow-hidden items-center justify-center p-6 text-center animate-in fade-in duration-500">
         <div className="bg-indigo-100 text-indigo-600 w-16 h-16 rounded-full flex items-center justify-center mb-4">
@@ -411,14 +461,13 @@ const App: React.FC = () => {
         </div>
         <h2 className="text-3xl font-extrabold text-indigo-900 mb-2">학습 결과</h2>
         <p className="text-slate-500 mb-8 font-medium">수고하셨습니다! 오늘의 학습 성과입니다.</p>
-        
         <div className="w-full grid grid-cols-1 gap-4 mb-10">
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center">
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
               <p className="text-slate-400 text-xs font-bold uppercase mb-1">전체 글자수</p>
               <p className="text-3xl font-black text-slate-800">{quizDeck.length}</p>
             </div>
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center">
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
               <p className="text-indigo-400 text-xs font-bold uppercase mb-1">소요 시간</p>
               <p className="text-2xl font-black text-indigo-700">{formatTime(sessionTimeTaken)}</p>
             </div>
@@ -438,7 +487,6 @@ const App: React.FC = () => {
             </div>
           </div>
         </div>
-
         <div className={`w-full grid ${showRetry ? 'grid-cols-2' : 'grid-cols-1'} gap-4`}>
           {showRetry && <Button variant="outline" className="py-4 text-lg" onClick={handleRetry}>다시 학습하기</Button>}
           <Button className="py-4 text-lg" onClick={() => navigateTo(View.HOME)}>홈으로</Button>
@@ -450,7 +498,7 @@ const App: React.FC = () => {
   const renderReview = () => (
     <div className="p-6 max-w-md mx-auto animate-in slide-in-from-right duration-300 min-h-screen bg-slate-50 pb-20">
       <div className="flex items-center gap-4 mb-8">
-        <button onClick={() => window.history.back()} className="p-2 bg-white rounded-xl shadow-sm border border-slate-100 transition-colors active:bg-slate-50"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg></button>
+        <button onClick={() => window.history.back()} className="p-2 bg-white rounded-xl shadow-sm border border-slate-100"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg></button>
         <h2 className="text-2xl font-bold text-slate-800">복습 목록</h2>
       </div>
       {mistakeItems.length === 0 ? (
@@ -459,15 +507,13 @@ const App: React.FC = () => {
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-3">
             {mistakeItems.map(item => (
-              <div key={item.id} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between group animate-in zoom-in duration-200">
+              <div key={item.id} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between animate-in zoom-in duration-200">
                 <div className="flex items-center gap-3"><span className="text-3xl font-bold text-indigo-900 font-kana">{item.char}</span><span className="text-[10px] text-indigo-400 uppercase font-black tracking-widest">{item.romaji}</span></div>
-                <button onClick={() => setMistakes(prev => prev.filter(mId => mId !== item.id))} className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg></button>
+                <button onClick={() => setMistakes(prev => prev.filter(mId => mId !== item.id))} className="p-1.5 text-slate-300 hover:text-rose-500 rounded-lg"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg></button>
               </div>
             ))}
           </div>
-          <div className="flex flex-col gap-3 mt-6">
-            <Button variant="danger" onClick={() => startQuiz(mistakeItems, 'review')}>복습 시작하기</Button>
-          </div>
+          <Button variant="danger" className="mt-6" onClick={() => startQuiz(mistakeItems, 'review')}>복습 시작하기</Button>
         </div>
       )}
     </div>
@@ -480,9 +526,7 @@ const App: React.FC = () => {
         <div className="p-4 flex items-center justify-between bg-white border-b border-slate-100">
           <button onClick={() => window.history.back()} className="text-slate-400 p-2"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
           <span className="text-lg font-bold text-slate-800">쓰기: <span className="text-indigo-600 uppercase ml-1 font-black">{item?.romaji}</span></span>
-          <button onClick={() => setWritingPickerOpen(true)} className="text-slate-400 p-2 hover:bg-slate-50 rounded-xl transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" /></svg>
-          </button>
+          <button onClick={() => setWritingPickerOpen(true)} className="text-slate-400 p-2 hover:bg-slate-50 rounded-xl transition-colors"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" /></svg></button>
         </div>
         {item ? (
           <>
