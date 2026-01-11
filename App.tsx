@@ -1,5 +1,3 @@
-
-// Fix: Added React import to resolve the "Cannot find namespace 'React'" error when using React.FC
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { HIRAGANA, KATAKANA } from './constants';
 import { KanaItem, View, KanaType, KanaCategory } from './types';
@@ -35,6 +33,33 @@ const App: React.FC = () => {
     }
   });
 
+  // --- Browser Navigation Support ---
+  const navigateTo = useCallback((view: View) => {
+    window.history.pushState({ view }, '');
+    setCurrentView(view);
+  }, []);
+
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      if (event.state && event.state.view) {
+        setCurrentView(event.state.view);
+      } else {
+        setCurrentView(View.HOME);
+      }
+      // If back is pressed while modal is open, we should also ensure it's closed
+      setWritingPickerOpen(false);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    
+    // Initial state setup
+    if (!window.history.state) {
+      window.history.replaceState({ view: View.HOME }, '');
+    }
+
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
   // --- Persistence ---
   useEffect(() => {
     localStorage.setItem('kana_mistakes', JSON.stringify(mistakes));
@@ -45,9 +70,9 @@ const App: React.FC = () => {
     if (timeTakenOverride !== undefined) {
       setSessionTimeTaken(timeTakenOverride);
     }
-    setCurrentView(View.SUMMARY);
+    navigateTo(View.SUMMARY);
     setTimeLeft(null);
-  }, []);
+  }, [navigateTo]);
 
   // --- Timer logic ---
   useEffect(() => {
@@ -94,16 +119,16 @@ const App: React.FC = () => {
     const duration = Math.max(10, deck.length * 4);
     setTimeLeft(duration);
     setInitialTime(duration);
-    setCurrentView(View.QUIZ);
-  }, []);
+    navigateTo(View.QUIZ);
+  }, [navigateTo]);
 
   const startWriting = useCallback((deck: KanaItem[], startIndex: number = 0) => {
     if (deck.length === 0) return;
     setQuizDeck(deck);
     setCurrentIndex(startIndex);
-    setCurrentView(View.WRITING);
     setWritingPickerOpen(false);
-  }, []);
+    navigateTo(View.WRITING);
+  }, [navigateTo]);
 
   const handleNext = (isCorrect: boolean) => {
     const currentItem = quizDeck[currentIndex];
@@ -139,35 +164,35 @@ const App: React.FC = () => {
         <div className="grid grid-cols-2 gap-3">
           <button 
             onClick={() => setSelectedTypes(prev => prev.includes('hiragana') ? prev.filter(t => t !== 'hiragana') : [...prev, 'hiragana'])}
-            className={`p-4 rounded-2xl border-2 transition-all ${selectedTypes.includes('hiragana') ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-slate-50 text-slate-600'}`}
+            className={`py-7 rounded-2xl border-2 transition-all flex flex-col items-center justify-center ${selectedTypes.includes('hiragana') ? 'border-indigo-500 bg-indigo-50 text-indigo-700 shadow-inner' : 'border-slate-200 bg-slate-50 text-slate-600'}`}
           >
-            <span className="text-2xl block mb-1 font-kana">あ</span>
-            <span className="text-sm font-semibold">Hiragana</span>
+            <span className="text-3xl block mb-1 font-kana">あ</span>
+            <span className="text-sm font-bold">Hiragana</span>
           </button>
           <button 
             onClick={() => setSelectedTypes(prev => prev.includes('katakana') ? prev.filter(t => t !== 'katakana') : [...prev, 'katakana'])}
-            className={`p-4 rounded-2xl border-2 transition-all ${selectedTypes.includes('katakana') ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-slate-50 text-slate-600'}`}
+            className={`py-7 rounded-2xl border-2 transition-all flex flex-col items-center justify-center ${selectedTypes.includes('katakana') ? 'border-indigo-500 bg-indigo-50 text-indigo-700 shadow-inner' : 'border-slate-200 bg-slate-50 text-slate-600'}`}
           >
-            <span className="text-2xl block mb-1 font-kana">ア</span>
-            <span className="text-sm font-semibold">Katakana</span>
+            <span className="text-3xl block mb-1 font-kana">ア</span>
+            <span className="text-sm font-bold">Katakana</span>
           </button>
         </div>
 
-        <h3 className="text-sm font-bold text-slate-400 mt-2 uppercase tracking-wider">포함할 종류</h3>
+        <h3 className="text-sm font-bold text-slate-400 mt-2 uppercase tracking-wider px-1">포함할 종류</h3>
         <div className="flex flex-wrap gap-2">
           {(['basic', 'dakuten', 'youm'] as KanaCategory[]).map(cat => (
             <button 
               key={cat}
               onClick={() => setSelectedCategories(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat])}
-              className={`px-4 py-2 rounded-full text-xs font-bold border-2 transition-all ${selectedCategories.includes(cat) ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-400 border-slate-100'}`}
+              className={`px-4 py-2 rounded-full text-xs font-bold border-2 transition-all ${selectedCategories.includes(cat) ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-400 border-slate-100'}`}
             >
               {cat === 'basic' ? '기본음' : cat === 'dakuten' ? '탁음' : '요음'}
             </button>
           ))}
         </div>
 
-        <div className="flex flex-col gap-2 mt-2">
-          <Button disabled={activePool.length === 0} onClick={() => startQuiz(activePool)}>플래시카드</Button>
+        <div className="flex flex-col gap-2 mt-4">
+          <Button disabled={activePool.length === 0} onClick={() => startQuiz(activePool)}>플래시카드 시작</Button>
           <Button variant="secondary" disabled={activePool.length === 0} onClick={() => setWritingPickerOpen(true)}>쓰기 연습</Button>
         </div>
       </div>
@@ -175,10 +200,10 @@ const App: React.FC = () => {
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col gap-4">
         <div className="flex justify-between items-center">
           <h2 className="text-lg font-bold text-slate-800">복습</h2>
-          <span className="text-xs bg-rose-100 text-rose-600 px-2 py-1 rounded-full font-bold">{mistakes.length}</span>
+          <span className="text-xs bg-rose-100 text-rose-600 px-2 py-1 rounded-full font-bold">{mistakes.length}개 남음</span>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="flex-1 text-sm py-2" onClick={() => setCurrentView(View.REVIEW)} disabled={mistakes.length === 0}>목록</Button>
+          <Button variant="outline" className="flex-1 text-sm py-2" onClick={() => navigateTo(View.REVIEW)} disabled={mistakes.length === 0}>목록 보기</Button>
           <Button variant="danger" className="flex-1 text-sm py-2" onClick={() => startQuiz(mistakeItems)} disabled={mistakes.length === 0}>복습 시작</Button>
         </div>
       </div>
@@ -187,17 +212,17 @@ const App: React.FC = () => {
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-6 flex flex-col max-h-[85vh]">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold text-slate-800">시작할 글자 선택</h3>
+              <h3 className="text-xl font-bold text-slate-800 px-1">시작할 글자 선택</h3>
               <button onClick={() => setWritingPickerOpen(false)} className="text-slate-400 p-2">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
             <div className="overflow-y-auto flex-1 grid grid-cols-5 gap-2 pr-1 scrollbar-hide">
-              <button onClick={() => startWriting(activePool, 0)} className="col-span-5 bg-indigo-50 text-indigo-700 py-3 rounded-xl font-bold mb-2 border-2 border-indigo-100">처음부터 순서대로 시작</button>
+              <button onClick={() => startWriting(activePool, 0)} className="col-span-5 bg-indigo-50 text-indigo-700 py-3 rounded-xl font-bold mb-2 border-2 border-indigo-100 text-sm">처음부터 순서대로 시작</button>
               {activePool.map((k, idx) => (
-                <button key={k.id} onClick={() => startWriting(activePool, idx)} className="aspect-square flex flex-col items-center justify-center bg-slate-50 rounded-xl hover:bg-indigo-100 hover:text-indigo-600 transition-colors border border-slate-100">
-                  <span className="text-xl font-bold font-kana">{k.char}</span>
-                  <span className="text-[10px] uppercase opacity-50 font-bold">{k.romaji}</span>
+                <button key={k.id} onClick={() => startWriting(activePool, idx)} className="aspect-square flex flex-col items-center justify-center bg-slate-50 rounded-xl hover:bg-indigo-100 hover:text-indigo-600 transition-all border border-slate-100 active:scale-95">
+                  <span className="text-xl font-bold font-kana leading-none">{k.char}</span>
+                  <span className="text-[10px] uppercase opacity-50 font-black mt-1">{k.romaji}</span>
                 </button>
               ))}
             </div>
@@ -216,7 +241,7 @@ const App: React.FC = () => {
           <div className={`h-full transition-all duration-1000 ease-linear ${timeLeft && timeLeft < 10 ? 'bg-rose-500' : 'bg-indigo-500'}`} style={{ width: `${timeProgress}%` }} />
         </div>
         <div className="p-4 flex items-center justify-between">
-          <button onClick={() => { setCurrentView(View.HOME); setTimeLeft(null); }} className="text-slate-400 p-2"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
+          <button onClick={() => { window.history.back(); setTimeLeft(null); }} className="text-slate-400 p-2"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
           <span className={`text-sm font-black ${timeLeft && timeLeft < 10 ? 'text-rose-600 animate-pulse' : 'text-slate-600'}`}>{timeLeft}초 남음</span>
           <span className="text-xs font-bold text-slate-400">{currentIndex + 1}/{quizDeck.length}</span>
         </div>
@@ -276,7 +301,7 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        <Button className="w-full py-4 text-lg" onClick={() => setCurrentView(View.HOME)}>홈으로 돌아가기</Button>
+        <Button className="w-full py-4 text-lg" onClick={() => window.history.back()}>홈으로 돌아가기</Button>
       </div>
     );
   };
@@ -284,11 +309,11 @@ const App: React.FC = () => {
   const renderReview = () => (
     <div className="p-6 max-w-md mx-auto animate-in slide-in-from-right duration-300 min-h-screen bg-slate-50 pb-20">
       <div className="flex items-center gap-4 mb-8">
-        <button onClick={() => setCurrentView(View.HOME)} className="p-2 bg-white rounded-xl shadow-sm border border-slate-100"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg></button>
+        <button onClick={() => window.history.back()} className="p-2 bg-white rounded-xl shadow-sm border border-slate-100 transition-colors active:bg-slate-50"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg></button>
         <h2 className="text-2xl font-bold text-slate-800">복습 목록</h2>
       </div>
       {mistakeItems.length === 0 ? (
-        <div className="text-center mt-20"><p className="text-slate-500 font-bold">복습할 글자가 없습니다. 완벽해요!</p><Button onClick={() => setCurrentView(View.HOME)} variant="outline" className="mt-6 mx-auto">홈으로</Button></div>
+        <div className="text-center mt-20"><p className="text-slate-500 font-bold">복습할 글자가 없습니다. 완벽해요!</p><Button onClick={() => window.history.back()} variant="outline" className="mt-6 mx-auto">홈으로</Button></div>
       ) : (
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-3">
@@ -312,7 +337,7 @@ const App: React.FC = () => {
     return (
       <div className="flex flex-col h-screen max-w-md mx-auto bg-slate-50 overflow-hidden">
         <div className="p-4 flex items-center justify-between bg-white border-b border-slate-100">
-          <button onClick={() => setCurrentView(View.HOME)} className="text-slate-400 p-2"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
+          <button onClick={() => window.history.back()} className="text-slate-400 p-2"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
           <span className="text-lg font-bold text-slate-800">쓰기: <span className="text-indigo-600 uppercase ml-1 font-black">{item.romaji}</span></span>
           <div className="w-10" />
         </div>
@@ -321,7 +346,7 @@ const App: React.FC = () => {
         </div>
         <div className="p-8 pb-8 bg-white rounded-t-[3rem] shadow-2xl flex gap-4">
           <Button variant="outline" className="flex-1" onClick={() => { if (currentIndex > 0) setCurrentIndex(prev => prev - 1); }}>이전</Button>
-          <Button className="flex-1" onClick={() => { if (currentIndex < quizDeck.length - 1) setCurrentIndex(prev => prev + 1); else setCurrentView(View.HOME); }}>{currentIndex < quizDeck.length - 1 ? '다음' : '완료'}</Button>
+          <Button className="flex-1" onClick={() => { if (currentIndex < quizDeck.length - 1) setCurrentIndex(prev => prev + 1); else window.history.back(); }}>{currentIndex < quizDeck.length - 1 ? '다음' : '완료'}</Button>
         </div>
       </div>
     );
