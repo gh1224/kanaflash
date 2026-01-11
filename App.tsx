@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { HIRAGANA, KATAKANA } from './constants';
 import { KanaItem, View, KanaType, KanaCategory } from './types';
 import { Button } from './components/Button';
-import { getMnemonic } from './services/geminiService';
 import { DrawingCanvas } from './components/DrawingCanvas';
 
 const App: React.FC = () => {
@@ -32,9 +31,6 @@ const App: React.FC = () => {
       return [];
     }
   });
-  
-  const [mnemonic, setMnemonic] = useState<string | null>(null);
-  const [isLoadingMnemonic, setIsLoadingMnemonic] = useState(false);
 
   // --- Persistence ---
   useEffect(() => {
@@ -79,9 +75,8 @@ const App: React.FC = () => {
     setQuizDeck(shuffled);
     setCurrentIndex(0);
     setShowAnswer(false);
-    setMnemonic(null);
     setSessionStats({ correct: 0, incorrect: 0 });
-    const duration = Math.max(10, deck.length * 4); // A bit more time for mobile
+    const duration = Math.max(10, deck.length * 4);
     setTimeLeft(duration);
     setInitialTime(duration);
     setCurrentView(View.QUIZ);
@@ -110,18 +105,9 @@ const App: React.FC = () => {
     if (currentIndex < quizDeck.length - 1) {
       setCurrentIndex(prev => prev + 1);
       setShowAnswer(false);
-      setMnemonic(null);
     } else {
       endQuizSession();
     }
-  };
-
-  const handleFetchMnemonic = async () => {
-    const currentItem = quizDeck[currentIndex];
-    setIsLoadingMnemonic(true);
-    const result = await getMnemonic(currentItem.char, currentItem.romaji);
-    setMnemonic(result);
-    setIsLoadingMnemonic(false);
   };
 
   // --- Sub-renderers ---
@@ -223,8 +209,6 @@ const App: React.FC = () => {
             <span className="text-[8rem] font-bold text-indigo-950 font-kana">{item.char}</span>
             {showAnswer && <span className="text-4xl font-black text-indigo-600 uppercase tracking-widest mt-4 animate-in zoom-in">{item.romaji}</span>}
           </div>
-          {showAnswer && mnemonic && <div className="bg-indigo-50 p-4 rounded-2xl text-indigo-700 text-sm text-center border border-indigo-100 max-w-xs">"{mnemonic}"</div>}
-          {showAnswer && !mnemonic && <button onClick={handleFetchMnemonic} disabled={isLoadingMnemonic} className="text-indigo-400 text-sm font-semibold">{isLoadingMnemonic ? "생각 중..." : "AI 암기 팁 보기 ✨"}</button>}
         </div>
         <div className="p-8 pb-12 bg-white rounded-t-[3rem] shadow-2xl">
           {!showAnswer ? <Button onClick={() => setShowAnswer(true)} className="w-full py-5 text-xl">정답 확인</Button> : (
