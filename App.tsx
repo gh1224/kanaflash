@@ -301,7 +301,7 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        <Button className="w-full py-4 text-lg" onClick={() => window.history.back()}>홈으로 돌아가기</Button>
+        <Button className="w-full py-4 text-lg" onClick={() => navigateTo(View.HOME)}>홈으로 돌아가기</Button>
       </div>
     );
   };
