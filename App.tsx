@@ -164,14 +164,14 @@ const App: React.FC = () => {
         <div className="grid grid-cols-2 gap-3">
           <button 
             onClick={() => setSelectedTypes(prev => prev.includes('hiragana') ? prev.filter(t => t !== 'hiragana') : [...prev, 'hiragana'])}
-            className={`py-7 rounded-2xl border-2 transition-all flex flex-col items-center justify-center ${selectedTypes.includes('hiragana') ? 'border-indigo-500 bg-indigo-50 text-indigo-700 shadow-inner' : 'border-slate-200 bg-slate-50 text-slate-600'}`}
+            className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center justify-center ${selectedTypes.includes('hiragana') ? 'border-indigo-500 bg-indigo-50 text-indigo-700 shadow-inner' : 'border-slate-200 bg-slate-50 text-slate-600'}`}
           >
             <span className="text-3xl block mb-1 font-kana">あ</span>
             <span className="text-sm font-bold">Hiragana</span>
           </button>
           <button 
             onClick={() => setSelectedTypes(prev => prev.includes('katakana') ? prev.filter(t => t !== 'katakana') : [...prev, 'katakana'])}
-            className={`py-7 rounded-2xl border-2 transition-all flex flex-col items-center justify-center ${selectedTypes.includes('katakana') ? 'border-indigo-500 bg-indigo-50 text-indigo-700 shadow-inner' : 'border-slate-200 bg-slate-50 text-slate-600'}`}
+            className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center justify-center ${selectedTypes.includes('katakana') ? 'border-indigo-500 bg-indigo-50 text-indigo-700 shadow-inner' : 'border-slate-200 bg-slate-50 text-slate-600'}`}
           >
             <span className="text-3xl block mb-1 font-kana">ア</span>
             <span className="text-sm font-bold">Katakana</span>
@@ -191,7 +191,7 @@ const App: React.FC = () => {
           ))}
         </div>
 
-        <div className="flex flex-col gap-2 mt-4">
+        <div className="flex flex-col gap-2 mt-2">
           <Button disabled={activePool.length === 0} onClick={() => startQuiz(activePool)}>플래시카드 시작</Button>
           <Button variant="secondary" disabled={activePool.length === 0} onClick={() => setWritingPickerOpen(true)}>쓰기 연습</Button>
         </div>
