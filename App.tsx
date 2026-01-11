@@ -81,7 +81,7 @@ const App: React.FC = () => {
     setShowAnswer(false);
     setMnemonic(null);
     setSessionStats({ correct: 0, incorrect: 0 });
-    const duration = Math.max(10, deck.length * 3);
+    const duration = Math.max(10, deck.length * 4); // A bit more time for mobile
     setTimeLeft(duration);
     setInitialTime(duration);
     setCurrentView(View.QUIZ);
@@ -239,31 +239,32 @@ const App: React.FC = () => {
   };
 
   const renderSummary = () => {
-    const skipped = quizDeck.length - (sessionStats.correct + sessionStats.incorrect);
+    const solved = sessionStats.correct + sessionStats.incorrect;
+    const skipped = quizDeck.length - solved;
     return (
       <div className="flex flex-col h-screen max-w-md mx-auto bg-slate-50 overflow-hidden items-center justify-center p-6 text-center animate-in fade-in duration-500">
         <div className="bg-indigo-100 text-indigo-600 w-16 h-16 rounded-full flex items-center justify-center mb-4">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
         </div>
-        <h2 className="text-3xl font-extrabold text-indigo-900 mb-2">학습 완료</h2>
-        <p className="text-slate-500 mb-8 font-medium">수고하셨습니다! 오늘의 성과입니다.</p>
+        <h2 className="text-3xl font-extrabold text-indigo-900 mb-2">학습 결과</h2>
+        <p className="text-slate-500 mb-8 font-medium">수고하셨습니다! 오늘의 학습 성과입니다.</p>
         
         <div className="w-full grid grid-cols-1 gap-4 mb-10">
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-            <p className="text-slate-400 text-sm font-bold uppercase mb-1">전체 문항</p>
+            <p className="text-slate-400 text-sm font-bold uppercase mb-1">전체 글자수</p>
             <p className="text-4xl font-black text-slate-800">{quizDeck.length}</p>
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100">
-              <p className="text-emerald-600 text-[10px] font-bold uppercase mb-1">정답</p>
+              <p className="text-emerald-600 text-[10px] font-bold uppercase mb-1">맞음</p>
               <p className="text-xl font-black text-emerald-700">{sessionStats.correct}</p>
             </div>
             <div className="bg-rose-50 p-4 rounded-2xl border border-rose-100">
-              <p className="text-rose-600 text-[10px] font-bold uppercase mb-1">오답</p>
+              <p className="text-rose-600 text-[10px] font-bold uppercase mb-1">틀림</p>
               <p className="text-xl font-black text-rose-700">{sessionStats.incorrect}</p>
             </div>
             <div className="bg-slate-100 p-4 rounded-2xl border border-slate-200">
-              <p className="text-slate-500 text-[10px] font-bold uppercase mb-1">미풀이</p>
+              <p className="text-slate-500 text-[10px] font-bold uppercase mb-1">못 풂</p>
               <p className="text-xl font-black text-slate-600">{skipped}</p>
             </div>
           </div>
@@ -293,7 +294,7 @@ const App: React.FC = () => {
             ))}
           </div>
           <div className="flex flex-col gap-3 mt-6">
-            <Button variant="danger" onClick={() => startQuiz(mistakeItems)}>목록 복습하기</Button>
+            <Button variant="danger" onClick={() => startQuiz(mistakeItems)}>복습 시작하기</Button>
           </div>
         </div>
       )}
