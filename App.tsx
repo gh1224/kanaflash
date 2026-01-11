@@ -14,6 +14,12 @@ const App: React.FC = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
   
+  // Last session info for retry
+  const [lastSessionConfig, setLastSessionConfig] = useState<{
+    source: 'normal' | 'review';
+    ids: string[];
+  } | null>(null);
+
   // Modals
   const [writingPickerOpen, setWritingPickerOpen] = useState(false);
   const [quizPickerOpen, setQuizPickerOpen] = useState(false);
@@ -111,9 +117,16 @@ const App: React.FC = () => {
   };
 
   // --- Actions ---
-  const startQuiz = useCallback((deck: KanaItem[]) => {
+  const startQuiz = useCallback((deck: KanaItem[], source: 'normal' | 'review' = 'normal') => {
     if (deck.length === 0) return;
     const shuffled = [...deck].sort(() => Math.random() - 0.5);
+    
+    // Save for retry
+    setLastSessionConfig({
+      source,
+      ids: deck.map(k => k.id)
+    });
+
     setQuizDeck(shuffled);
     setCurrentIndex(0);
     setShowAnswer(false);
@@ -154,6 +167,19 @@ const App: React.FC = () => {
     } else {
       const timeTaken = initialTime - (timeLeft || 0);
       endQuizSession(timeTaken);
+    }
+  };
+
+  const handleRetry = () => {
+    if (!lastSessionConfig) return;
+    
+    if (lastSessionConfig.source === 'review') {
+      // For review retry, we take the CURRENT mistake list
+      startQuiz(mistakeItems, 'review');
+    } else {
+      // For normal retry, we take the fixed set used in the last session
+      const retryDeck = allKana.filter(k => lastSessionConfig.ids.includes(k.id));
+      startQuiz(retryDeck, 'normal');
     }
   };
 
@@ -219,7 +245,7 @@ const App: React.FC = () => {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" className="flex-1 text-sm py-2" onClick={() => navigateTo(View.REVIEW)} disabled={mistakes.length === 0}>목록 보기</Button>
-          <Button variant="danger" className="flex-1 text-sm py-2" onClick={() => startQuiz(mistakeItems)} disabled={mistakes.length === 0}>복습 시작</Button>
+          <Button variant="danger" className="flex-1 text-sm py-2" onClick={() => startQuiz(mistakeItems, 'review')} disabled={mistakes.length === 0}>복습 시작</Button>
         </div>
       </div>
     </div>
@@ -263,8 +289,8 @@ const App: React.FC = () => {
           </div>
 
           <div className="mt-6 flex flex-col gap-2">
-            <Button disabled={activePool.length === 0} onClick={() => startQuiz(activePool)} variant="outline">전체 글자 퀴즈 시작</Button>
-            <Button disabled={selectedCount === 0} onClick={() => startQuiz(activePool.filter(k => tempSelectedQuizIds.includes(k.id)))}>
+            <Button disabled={activePool.length === 0} onClick={() => startQuiz(activePool, 'normal')} variant="outline">전체 글자 퀴즈 시작</Button>
+            <Button disabled={selectedCount === 0} onClick={() => startQuiz(activePool.filter(k => tempSelectedQuizIds.includes(k.id)), 'normal')}>
               {selectedCount}개 글자만 학습 시작
             </Button>
           </div>
@@ -334,6 +360,8 @@ const App: React.FC = () => {
   };
 
   const renderSummary = () => {
+    const showRetry = lastSessionConfig && (lastSessionConfig.source === 'normal' || (lastSessionConfig.source === 'review' && mistakeItems.length > 0));
+    
     return (
       <div className="flex flex-col h-screen max-w-md mx-auto bg-slate-50 overflow-hidden items-center justify-center p-6 text-center animate-in fade-in duration-500">
         <div className="bg-indigo-100 text-indigo-600 w-16 h-16 rounded-full flex items-center justify-center mb-4">
@@ -369,7 +397,10 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        <Button className="w-full py-4 text-lg" onClick={() => navigateTo(View.HOME)}>홈으로 돌아가기</Button>
+        <div className={`w-full grid ${showRetry ? 'grid-cols-2' : 'grid-cols-1'} gap-4`}>
+          {showRetry && <Button variant="outline" className="py-4 text-lg" onClick={handleRetry}>다시 학습하기</Button>}
+          <Button className="py-4 text-lg" onClick={() => navigateTo(View.HOME)}>홈으로</Button>
+        </div>
       </div>
     );
   };
@@ -393,7 +424,7 @@ const App: React.FC = () => {
             ))}
           </div>
           <div className="flex flex-col gap-3 mt-6">
-            <Button variant="danger" onClick={() => startQuiz(mistakeItems)}>복습 시작하기</Button>
+            <Button variant="danger" onClick={() => startQuiz(mistakeItems, 'review')}>복습 시작하기</Button>
           </div>
         </div>
       )}
