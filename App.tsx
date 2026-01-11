@@ -13,6 +13,7 @@ const App: React.FC = () => {
   const [quizDeck, setQuizDeck] = useState<KanaItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
+  const [quizHistory, setQuizHistory] = useState<boolean[]>([]); // To track results for undo
   
   // Last session info for retry
   const [lastSessionConfig, setLastSessionConfig] = useState<{
@@ -130,6 +131,7 @@ const App: React.FC = () => {
     setQuizDeck(shuffled);
     setCurrentIndex(0);
     setShowAnswer(false);
+    setQuizHistory([]);
     setSessionStats({ correct: 0, incorrect: 0 });
     setSessionTimeTaken(0);
     const duration = Math.max(10, deck.length * 4);
@@ -151,6 +153,10 @@ const App: React.FC = () => {
 
   const handleNext = (isCorrect: boolean) => {
     const currentItem = quizDeck[currentIndex];
+    
+    // Update history for undo
+    setQuizHistory(prev => [...prev, isCorrect]);
+
     if (isCorrect) {
       setSessionStats(prev => ({ ...prev, correct: prev.correct + 1 }));
       setMistakes(prev => prev.filter(id => id !== currentItem.id));
@@ -168,6 +174,26 @@ const App: React.FC = () => {
       const timeTaken = initialTime - (timeLeft || 0);
       endQuizSession(timeTaken);
     }
+  };
+
+  const handlePrevious = () => {
+    if (currentIndex === 0) return;
+
+    // Get the result of the previous card
+    const lastResult = quizHistory[quizHistory.length - 1];
+    
+    // Revert stats
+    if (lastResult !== undefined) {
+      if (lastResult) {
+        setSessionStats(prev => ({ ...prev, correct: Math.max(0, prev.correct - 1) }));
+      } else {
+        setSessionStats(prev => ({ ...prev, incorrect: Math.max(0, prev.incorrect - 1) }));
+      }
+      setQuizHistory(prev => prev.slice(0, -1));
+    }
+
+    setCurrentIndex(prev => prev - 1);
+    setShowAnswer(true); // Return to answer state for quick review/correction
   };
 
   const handleRetry = () => {
@@ -341,7 +367,11 @@ const App: React.FC = () => {
           <div className={`h-full transition-all duration-1000 ease-linear ${timeLeft && timeLeft < 10 ? 'bg-rose-500' : 'bg-indigo-500'}`} style={{ width: `${timeProgress}%` }} />
         </div>
         <div className="p-4 flex items-center justify-between">
-          <button onClick={() => { window.history.back(); setTimeLeft(null); }} className="text-slate-400 p-2"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => { window.history.back(); setTimeLeft(null); }} className="text-slate-400 p-2 active:scale-90 transition-transform">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </div>
           <span className={`text-sm font-black ${timeLeft && timeLeft < 10 ? 'text-rose-600 animate-pulse' : 'text-slate-600'}`}>{timeLeft}초 남음</span>
           <span className="text-xs font-bold text-slate-400">{currentIndex + 1}/{quizDeck.length}</span>
         </div>
@@ -353,7 +383,13 @@ const App: React.FC = () => {
             {showAnswer && <span className="text-3xl font-black text-indigo-600 uppercase tracking-widest mt-6 animate-in zoom-in">{item.romaji}</span>}
           </div>
         </div>
-        <div className="p-8 pb-8 bg-white rounded-t-[3rem] shadow-2xl">
+        <div className="p-8 pb-8 bg-white rounded-t-[3rem] shadow-2xl flex flex-col gap-3">
+          {currentIndex > 0 && (
+            <Button variant="outline" onClick={handlePrevious} className="w-full py-3 text-sm border-slate-100 text-slate-400 hover:text-indigo-500 hover:border-indigo-100">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+              이전 단어
+            </Button>
+          )}
           {!showAnswer ? <Button onClick={() => setShowAnswer(true)} className="w-full py-5 text-xl">정답 확인</Button> : (
             <div className="grid grid-cols-2 gap-4">
               <Button variant="danger" onClick={() => handleNext(false)} className="py-5">몰라요</Button>
