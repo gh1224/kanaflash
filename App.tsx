@@ -113,7 +113,7 @@ const App: React.FC = () => {
   // --- Sub-renderers ---
   const renderHome = () => (
     <div className="flex flex-col gap-6 p-6 max-w-md mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
-      <header className="text-center mt-10 mb-6">
+      <header className="text-center mt-8 mb-4">
         <h1 className="text-4xl font-extrabold text-indigo-900 tracking-tight font-kana">KanaFlash</h1>
         <p className="text-slate-500 mt-2 font-medium">일본어 가나를 누구보다 빠르게!</p>
       </header>
@@ -210,7 +210,7 @@ const App: React.FC = () => {
             {showAnswer && <span className="text-4xl font-black text-indigo-600 uppercase tracking-widest mt-4 animate-in zoom-in">{item.romaji}</span>}
           </div>
         </div>
-        <div className="p-8 pb-12 bg-white rounded-t-[3rem] shadow-2xl">
+        <div className="p-8 pb-8 bg-white rounded-t-[3rem] shadow-2xl">
           {!showAnswer ? <Button onClick={() => setShowAnswer(true)} className="w-full py-5 text-xl">정답 확인</Button> : (
             <div className="grid grid-cols-2 gap-4">
               <Button variant="danger" onClick={() => handleNext(false)} className="py-5">몰라요</Button>
@@ -297,7 +297,7 @@ const App: React.FC = () => {
         <div className="flex-1 p-6 flex flex-col gap-4 overflow-hidden">
           <div className="flex-1 relative"><DrawingCanvas guideChar={item.char} /></div>
         </div>
-        <div className="p-8 pb-12 bg-white rounded-t-[3rem] shadow-2xl flex gap-4">
+        <div className="p-8 pb-8 bg-white rounded-t-[3rem] shadow-2xl flex gap-4">
           <Button variant="outline" className="flex-1" onClick={() => { if (currentIndex > 0) setCurrentIndex(prev => prev - 1); }}>이전</Button>
           <Button className="flex-1" onClick={() => { if (currentIndex < quizDeck.length - 1) setCurrentIndex(prev => prev + 1); else setCurrentView(View.HOME); }}>{currentIndex < quizDeck.length - 1 ? '다음' : '완료'}</Button>
         </div>
