@@ -104,10 +104,15 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ guideChar }) => {
     setIsDrawing(false);
   };
 
+  // 글자 수에 따라 배경 가이드 크기를 동적으로 조절 (요음 처리)
+  const guideFontSize = guideChar.length > 1 ? 'text-[min(35vw,7.5rem)]' : 'text-[min(55vw,13rem)]';
+
   return (
     <div ref={containerRef} className="relative w-full h-full bg-white rounded-3xl overflow-hidden border-2 border-slate-100 shadow-inner">
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
-        <span className="text-[12rem] text-slate-100 font-kana opacity-60 leading-none">{guideChar}</span>
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none p-4">
+        <span className={`${guideFontSize} text-slate-100 font-kana opacity-60 leading-none whitespace-nowrap`}>
+          {guideChar}
+        </span>
       </div>
       
       <canvas

@@ -331,6 +331,10 @@ const App: React.FC = () => {
   const renderQuiz = () => {
     const item = quizDeck[currentIndex];
     const timeProgress = timeLeft !== null ? (timeLeft / initialTime) * 100 : 100;
+    
+    // 요음(2글자)인 경우 글자 크기를 줄여서 박스 안에 맞춤
+    const kanaFontSize = item.char.length > 1 ? 'text-[min(22vw,5.5rem)]' : 'text-[min(35vw,8.5rem)]';
+
     return (
       <div className="flex flex-col h-screen max-w-md mx-auto bg-slate-50 overflow-hidden">
         <div className="w-full bg-slate-200 h-1.5 overflow-hidden">
@@ -343,8 +347,10 @@ const App: React.FC = () => {
         </div>
         <div className="flex-1 flex flex-col items-center justify-center p-6 gap-6">
           <div className={`relative w-full max-w-[260px] aspect-[3/4] bg-white rounded-[2.5rem] shadow-2xl flex flex-col items-center justify-center border-4 transition-all duration-300 ${showAnswer ? 'border-indigo-100' : 'border-transparent'}`}>
-            <span className="text-[8rem] font-bold text-indigo-950 font-kana">{item.char}</span>
-            {showAnswer && <span className="text-4xl font-black text-indigo-600 uppercase tracking-widest mt-4 animate-in zoom-in">{item.romaji}</span>}
+            <span className={`${kanaFontSize} font-bold text-indigo-950 font-kana leading-none whitespace-nowrap`}>
+              {item.char}
+            </span>
+            {showAnswer && <span className="text-3xl font-black text-indigo-600 uppercase tracking-widest mt-6 animate-in zoom-in">{item.romaji}</span>}
           </div>
         </div>
         <div className="p-8 pb-8 bg-white rounded-t-[3rem] shadow-2xl">
