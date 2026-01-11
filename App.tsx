@@ -127,8 +127,11 @@ const App: React.FC = () => {
     setQuizDeck(deck);
     setCurrentIndex(startIndex);
     setWritingPickerOpen(false);
-    navigateTo(View.WRITING);
-  }, [navigateTo]);
+    // Only navigate if we are not already in WRITING view
+    if (currentView !== View.WRITING) {
+      navigateTo(View.WRITING);
+    }
+  }, [navigateTo, currentView]);
 
   const handleNext = (isCorrect: boolean) => {
     const currentItem = quizDeck[currentIndex];
@@ -207,28 +210,6 @@ const App: React.FC = () => {
           <Button variant="danger" className="flex-1 text-sm py-2" onClick={() => startQuiz(mistakeItems)} disabled={mistakes.length === 0}>복습 시작</Button>
         </div>
       </div>
-
-      {writingPickerOpen && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-6 flex flex-col max-h-[85vh]">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold text-slate-800 px-1">시작할 글자 선택</h3>
-              <button onClick={() => setWritingPickerOpen(false)} className="text-slate-400 p-2">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
-            </div>
-            <div className="overflow-y-auto flex-1 grid grid-cols-5 gap-2 pr-1 scrollbar-hide">
-              <button onClick={() => startWriting(activePool, 0)} className="col-span-5 bg-indigo-50 text-indigo-700 py-3 rounded-xl font-bold mb-2 border-2 border-indigo-100 text-sm">처음부터 순서대로 시작</button>
-              {activePool.map((k, idx) => (
-                <button key={k.id} onClick={() => startWriting(activePool, idx)} className="aspect-square flex flex-col items-center justify-center bg-slate-50 rounded-xl hover:bg-indigo-100 hover:text-indigo-600 transition-all border border-slate-100 active:scale-95">
-                  <span className="text-xl font-bold font-kana leading-none">{k.char}</span>
-                  <span className="text-[10px] uppercase opacity-50 font-black mt-1">{k.romaji}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 
@@ -338,15 +319,52 @@ const App: React.FC = () => {
       <div className="flex flex-col h-screen max-w-md mx-auto bg-slate-50 overflow-hidden">
         <div className="p-4 flex items-center justify-between bg-white border-b border-slate-100">
           <button onClick={() => window.history.back()} className="text-slate-400 p-2"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
-          <span className="text-lg font-bold text-slate-800">쓰기: <span className="text-indigo-600 uppercase ml-1 font-black">{item.romaji}</span></span>
-          <div className="w-10" />
+          <span className="text-lg font-bold text-slate-800">쓰기: <span className="text-indigo-600 uppercase ml-1 font-black">{item?.romaji}</span></span>
+          <button onClick={() => setWritingPickerOpen(true)} className="text-slate-400 p-2 hover:bg-slate-50 rounded-xl transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" /></svg>
+          </button>
         </div>
-        <div className="flex-1 p-6 flex flex-col gap-4 overflow-hidden">
-          <div className="flex-1 relative"><DrawingCanvas guideChar={item.char} /></div>
-        </div>
-        <div className="p-8 pb-8 bg-white rounded-t-[3rem] shadow-2xl flex gap-4">
-          <Button variant="outline" className="flex-1" onClick={() => { if (currentIndex > 0) setCurrentIndex(prev => prev - 1); }}>이전</Button>
-          <Button className="flex-1" onClick={() => { if (currentIndex < quizDeck.length - 1) setCurrentIndex(prev => prev + 1); else window.history.back(); }}>{currentIndex < quizDeck.length - 1 ? '다음' : '완료'}</Button>
+        {item ? (
+          <>
+            <div className="flex-1 p-6 flex flex-col gap-4 overflow-hidden">
+              <div className="flex-1 relative"><DrawingCanvas guideChar={item.char} /></div>
+            </div>
+            <div className="p-8 pb-8 bg-white rounded-t-[3rem] shadow-2xl flex gap-4">
+              <Button variant="outline" className="flex-1" onClick={() => { if (currentIndex > 0) setCurrentIndex(prev => prev - 1); }}>이전</Button>
+              <Button className="flex-1" onClick={() => { if (currentIndex < quizDeck.length - 1) setCurrentIndex(prev => prev + 1); else window.history.back(); }}>{currentIndex < quizDeck.length - 1 ? '다음' : '완료'}</Button>
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 flex items-center justify-center p-6 text-slate-400">데이터가 없습니다.</div>
+        )}
+      </div>
+    );
+  };
+
+  const renderWritingPicker = () => {
+    if (!writingPickerOpen) return null;
+    return (
+      <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-6 flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xl font-bold text-slate-800 px-1">시작할 글자 선택</h3>
+            <button onClick={() => setWritingPickerOpen(false)} className="text-slate-400 p-2 active:scale-90 transition-transform">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </div>
+          <div className="overflow-y-auto flex-1 grid grid-cols-5 gap-2 pr-1 scrollbar-hide">
+            <button onClick={() => startWriting(activePool, 0)} className="col-span-5 bg-indigo-50 text-indigo-700 py-3 rounded-xl font-bold mb-2 border-2 border-indigo-100 text-sm active:scale-[0.98] transition-transform">처음부터 순서대로 시작</button>
+            {activePool.map((k, idx) => (
+              <button 
+                key={k.id} 
+                onClick={() => startWriting(activePool, idx)} 
+                className={`aspect-square flex flex-col items-center justify-center rounded-xl transition-all border active:scale-95 ${currentIndex === idx && currentView === View.WRITING ? 'bg-indigo-600 text-white border-indigo-700 shadow-md' : 'bg-slate-50 text-slate-600 border-slate-100 hover:bg-indigo-50 hover:text-indigo-600'}`}
+              >
+                <span className="text-xl font-bold font-kana leading-none">{k.char}</span>
+                <span className={`text-[10px] uppercase font-black mt-1 ${currentIndex === idx && currentView === View.WRITING ? 'opacity-80' : 'opacity-50'}`}>{k.romaji}</span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -359,6 +377,7 @@ const App: React.FC = () => {
       {currentView === View.REVIEW && renderReview()}
       {currentView === View.WRITING && renderWriting()}
       {currentView === View.SUMMARY && renderSummary()}
+      {renderWritingPicker()}
     </div>
   );
 };
