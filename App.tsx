@@ -13,7 +13,11 @@ const App: React.FC = () => {
   const [quizDeck, setQuizDeck] = useState<KanaItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
+  
+  // Modals
   const [writingPickerOpen, setWritingPickerOpen] = useState(false);
+  const [quizPickerOpen, setQuizPickerOpen] = useState(false);
+  const [tempSelectedQuizIds, setTempSelectedQuizIds] = useState<string[]>([]);
   
   // Timer
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
@@ -46,13 +50,13 @@ const App: React.FC = () => {
       } else {
         setCurrentView(View.HOME);
       }
-      // If back is pressed while modal is open, we should also ensure it's closed
+      // Close all modals on back button
       setWritingPickerOpen(false);
+      setQuizPickerOpen(false);
     };
 
     window.addEventListener('popstate', handlePopState);
     
-    // Initial state setup
     if (!window.history.state) {
       window.history.replaceState({ view: View.HOME }, '');
     }
@@ -82,7 +86,6 @@ const App: React.FC = () => {
           setTimeLeft(prev => (prev && prev > 0 ? prev - 1 : 0));
         }, 1000);
       } else {
-        // Time ran out
         endQuizSession(initialTime);
       }
     }
@@ -119,6 +122,7 @@ const App: React.FC = () => {
     const duration = Math.max(10, deck.length * 4);
     setTimeLeft(duration);
     setInitialTime(duration);
+    setQuizPickerOpen(false);
     navigateTo(View.QUIZ);
   }, [navigateTo]);
 
@@ -127,7 +131,6 @@ const App: React.FC = () => {
     setQuizDeck(deck);
     setCurrentIndex(startIndex);
     setWritingPickerOpen(false);
-    // Only navigate if we are not already in WRITING view
     if (currentView !== View.WRITING) {
       navigateTo(View.WRITING);
     }
@@ -152,6 +155,12 @@ const App: React.FC = () => {
       const timeTaken = initialTime - (timeLeft || 0);
       endQuizSession(timeTaken);
     }
+  };
+
+  const toggleQuizItem = (id: string) => {
+    setTempSelectedQuizIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
   };
 
   // --- Sub-renderers ---
@@ -195,7 +204,10 @@ const App: React.FC = () => {
         </div>
 
         <div className="flex flex-col gap-2 mt-2">
-          <Button disabled={activePool.length === 0} onClick={() => startQuiz(activePool)}>플래시카드 시작</Button>
+          <Button disabled={activePool.length === 0} onClick={() => {
+            setTempSelectedQuizIds(activePool.map(k => k.id));
+            setQuizPickerOpen(true);
+          }}>플래시카드 시작</Button>
           <Button variant="secondary" disabled={activePool.length === 0} onClick={() => setWritingPickerOpen(true)}>쓰기 연습</Button>
         </div>
       </div>
@@ -212,6 +224,83 @@ const App: React.FC = () => {
       </div>
     </div>
   );
+
+  const renderQuizPicker = () => {
+    if (!quizPickerOpen) return null;
+    const selectedCount = tempSelectedQuizIds.length;
+    return (
+      <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-6 flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200">
+          <div className="flex justify-between items-center mb-4">
+            <div>
+              <h3 className="text-xl font-bold text-slate-800 px-1">학습 범위 선택</h3>
+              <p className="text-xs text-slate-400 px-1 mt-0.5">원하는 글자를 눌러서 선택하세요</p>
+            </div>
+            <button onClick={() => setQuizPickerOpen(false)} className="text-slate-400 p-2 active:scale-90 transition-transform">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </div>
+          
+          <div className="flex gap-2 mb-4">
+            <button onClick={() => setTempSelectedQuizIds(activePool.map(k => k.id))} className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-full border border-indigo-100">전체 선택</button>
+            <button onClick={() => setTempSelectedQuizIds([])} className="text-[10px] font-bold text-slate-400 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-200">전체 해제</button>
+          </div>
+
+          <div className="overflow-y-auto flex-1 grid grid-cols-5 gap-2 pr-1 scrollbar-hide">
+            {activePool.map((k) => {
+              const isSelected = tempSelectedQuizIds.includes(k.id);
+              return (
+                <button 
+                  key={k.id} 
+                  onClick={() => toggleQuizItem(k.id)} 
+                  className={`aspect-square flex flex-col items-center justify-center rounded-xl transition-all border active:scale-95 ${isSelected ? 'bg-indigo-600 text-white border-indigo-700 shadow-md ring-2 ring-indigo-200' : 'bg-slate-50 text-slate-600 border-slate-100 hover:bg-indigo-50 hover:text-indigo-600'}`}
+                >
+                  <span className="text-xl font-bold font-kana leading-none">{k.char}</span>
+                  <span className={`text-[10px] uppercase font-black mt-1 ${isSelected ? 'opacity-80' : 'opacity-50'}`}>{k.romaji}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-6 flex flex-col gap-2">
+            <Button disabled={activePool.length === 0} onClick={() => startQuiz(activePool)} variant="outline">전체 글자 퀴즈 시작</Button>
+            <Button disabled={selectedCount === 0} onClick={() => startQuiz(activePool.filter(k => tempSelectedQuizIds.includes(k.id)))}>
+              {selectedCount}개 글자만 학습 시작
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderWritingPicker = () => {
+    if (!writingPickerOpen) return null;
+    return (
+      <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-6 flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xl font-bold text-slate-800 px-1">시작할 글자 선택</h3>
+            <button onClick={() => setWritingPickerOpen(false)} className="text-slate-400 p-2 active:scale-90 transition-transform">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </div>
+          <div className="overflow-y-auto flex-1 grid grid-cols-5 gap-2 pr-1 scrollbar-hide">
+            <button onClick={() => startWriting(activePool, 0)} className="col-span-5 bg-indigo-50 text-indigo-700 py-3 rounded-xl font-bold mb-2 border-2 border-indigo-100 text-sm active:scale-[0.98] transition-transform">처음부터 순서대로 시작</button>
+            {activePool.map((k, idx) => (
+              <button 
+                key={k.id} 
+                onClick={() => startWriting(activePool, idx)} 
+                className={`aspect-square flex flex-col items-center justify-center rounded-xl transition-all border active:scale-95 ${currentIndex === idx && currentView === View.WRITING ? 'bg-indigo-600 text-white border-indigo-700 shadow-md' : 'bg-slate-50 text-slate-600 border-slate-100 hover:bg-indigo-50 hover:text-indigo-600'}`}
+              >
+                <span className="text-xl font-bold font-kana leading-none">{k.char}</span>
+                <span className={`text-[10px] uppercase font-black mt-1 ${currentIndex === idx && currentView === View.WRITING ? 'opacity-80' : 'opacity-50'}`}>{k.romaji}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   const renderQuiz = () => {
     const item = quizDeck[currentIndex];
@@ -245,8 +334,6 @@ const App: React.FC = () => {
   };
 
   const renderSummary = () => {
-    const solved = sessionStats.correct + sessionStats.incorrect;
-    const skipped = quizDeck.length - solved;
     return (
       <div className="flex flex-col h-screen max-w-md mx-auto bg-slate-50 overflow-hidden items-center justify-center p-6 text-center animate-in fade-in duration-500">
         <div className="bg-indigo-100 text-indigo-600 w-16 h-16 rounded-full flex items-center justify-center mb-4">
@@ -277,7 +364,7 @@ const App: React.FC = () => {
             </div>
             <div className="bg-slate-100 p-4 rounded-2xl border border-slate-200">
               <p className="text-slate-500 text-[10px] font-bold uppercase mb-1">못 풂</p>
-              <p className="text-xl font-black text-slate-600">{skipped}</p>
+              <p className="text-xl font-black text-slate-600">{quizDeck.length - (sessionStats.correct + sessionStats.incorrect)}</p>
             </div>
           </div>
         </div>
@@ -341,35 +428,6 @@ const App: React.FC = () => {
     );
   };
 
-  const renderWritingPicker = () => {
-    if (!writingPickerOpen) return null;
-    return (
-      <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
-        <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-6 flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-xl font-bold text-slate-800 px-1">시작할 글자 선택</h3>
-            <button onClick={() => setWritingPickerOpen(false)} className="text-slate-400 p-2 active:scale-90 transition-transform">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-          </div>
-          <div className="overflow-y-auto flex-1 grid grid-cols-5 gap-2 pr-1 scrollbar-hide">
-            <button onClick={() => startWriting(activePool, 0)} className="col-span-5 bg-indigo-50 text-indigo-700 py-3 rounded-xl font-bold mb-2 border-2 border-indigo-100 text-sm active:scale-[0.98] transition-transform">처음부터 순서대로 시작</button>
-            {activePool.map((k, idx) => (
-              <button 
-                key={k.id} 
-                onClick={() => startWriting(activePool, idx)} 
-                className={`aspect-square flex flex-col items-center justify-center rounded-xl transition-all border active:scale-95 ${currentIndex === idx && currentView === View.WRITING ? 'bg-indigo-600 text-white border-indigo-700 shadow-md' : 'bg-slate-50 text-slate-600 border-slate-100 hover:bg-indigo-50 hover:text-indigo-600'}`}
-              >
-                <span className="text-xl font-bold font-kana leading-none">{k.char}</span>
-                <span className={`text-[10px] uppercase font-black mt-1 ${currentIndex === idx && currentView === View.WRITING ? 'opacity-80' : 'opacity-50'}`}>{k.romaji}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div className="min-h-screen">
       {currentView === View.HOME && renderHome()}
@@ -378,6 +436,7 @@ const App: React.FC = () => {
       {currentView === View.WRITING && renderWriting()}
       {currentView === View.SUMMARY && renderSummary()}
       {renderWritingPicker()}
+      {renderQuizPicker()}
     </div>
   );
 };
